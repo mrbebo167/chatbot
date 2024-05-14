@@ -404,97 +404,67 @@ export const getAvailableNodesForVariable = (nodes, edges, target, targetHandle)
 
 export const getUpsertDetails = (nodes, edges) => {
     const vsNodes = nodes.filter(
-        (node) =>
-            node.data.category === 'Vector Stores' && !node.data.label.includes('Upsert') && !node.data.label.includes('Load Existing')
-    )
-    const vsNodeIds = vsNodes.map((vs) => vs.data.id)
+        node => node.data.category === 'Vector Stores' && !node.data.label.includes('Upsert') && !node.data.label.includes('Load Existing')
+    );
+    const vsNodeIds = vsNodes.map(vs => vs.data.id);
 
-    const upsertNodes = []
-    const seenVsNodeIds = []
+    const upsertNodes = [];
+    const seenVsNodeIds = [];
+
     for (const edge of edges) {
         if (vsNodeIds.includes(edge.source) || vsNodeIds.includes(edge.target)) {
-            const vsNode = vsNodes.find((node) => node.data.id === edge.source || node.data.id === edge.target)
-            if (!vsNode || seenVsNodeIds.includes(vsNode.data.id)) continue
-            seenVsNodeIds.push(vsNode.data.id)
+            const vsNode = vsNodes.find(node => node.data.id === edge.source || node.data.id === edge.target);
+            if (!vsNode || seenVsNodeIds.includes(vsNode.data.id)) continue;
+            seenVsNodeIds.push(vsNode.data.id);
 
-            // Found Vector Store Node, proceed to find connected Document Loader node
-            let connectedDocs = []
+            let connectedDocs = vsNode.data.inputs.document || [];
 
-            if (vsNode.data.inputs.document) connectedDocs = [...new Set(vsNode.data.inputs.document)]
+            const innerNodes = [vsNode];
 
-// Ensures the node and its data inputs are defined before proceeding.
-if (vsNode?.data?.inputs) {
-    if (typeof vsNode.data.inputs.embeddings === 'string') {
-        const embeddingsId = vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0];
-        const embeddingsNode = nodes.find((node) => node.data.id === embeddingsId);
-        if (embeddingsNode) {
-            innerNodes.push(embeddingsNode);
-        }
-    } else {
-        console.warn('Embeddings input is not a string:', vsNode.data.inputs.embeddings);
-    }
-
-    if (typeof vsNode.data.inputs.recordManager === 'string') {
-        const recordManagerId = vsNode.data.inputs.recordManager.replace(/{{|}}/g, '').split('.')[0];
-        const recordManagerNode = nodes.find((node) => node.data.id === recordManagerId);
-        if (recordManagerNode) {
-            innerNodes.push(recordManagerNode);
-        }
-    } else {
-        console.warn('Record Manager input is not a string:', vsNode.data.inputs.recordManager);
-    }
-}
-
-for (const doc of connectedDocs) {
-    if (typeof doc === 'string') {
-        const docId = doc.replace(/{{|}}/g, '').split('.')[0];
-        const docNode = nodes.find((node) => node.data.id === docId);
-        if (docNode) {
-            innerNodes.push(docNode);
-            if (typeof docNode.data.inputs.textSplitter === 'string') {
-                const textSplitterId = docNode.data.inputs.textSplitter.replace(/{{|}}/g, '').split('.')[0];
-                const textSplitterNode = nodes.find((node) => node.data.id === textSplitterId);
-                if (textSplitterNode) {
-                    innerNodes.push(textSplitterNode);
+            if (typeof vsNode?.data?.inputs?.embeddings === 'string') {
+                const embeddingsId = vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0];
+                const embeddingsNode = nodes.find(node => node.data.id === embeddingsId);
+                if (embeddingsNode) {
+                    innerNodes.push(embeddingsNode);
                 }
-            } else {
-                console.warn('Text Splitter input is not a string:', docNode.data.inputs.textSplitter);
             }
-        }
-    } else {
-        console.warn('Document is not a string:', doc);
-    }
-}
 
+            if (typeof vsNode?.data?.inputs?.recordManager === 'string') {
+                const recordManagerId = vsNode.data.inputs.recordManager.replace(/{{|}}/g, '').split('.')[0];
+                const recordManagerNode = nodes.find(node => node.data.id === recordManagerId);
+                if (recordManagerNode) {
+                    innerNodes.push(recordManagerNode);
+                }
+            }
 
-               for (const doc of connectedDocs) {
-                   if (typeof doc === 'string') {
-                       const docId = doc.replace(/{{|}}/g, '').split('.')[0];
-                       const docNode = nodes.find((node) => node.data.id === docId);
-                       if (docNode) {
-                           innerNodes.push(docNode);
-                           // Found Document Loader Node, proceed to find connected Text Splitter node
-                           if (docNode.data.inputs.textSplitter && typeof docNode.data.inputs.textSplitter === 'string') {
-                               const textSplitterId = docNode.data.inputs.textSplitter.replace(/{{|}}/g, '').split('.')[0];
-                               const textSplitterNode = nodes.find((node) => node.data.id === textSplitterId);
-                               if (textSplitterNode) {
-                                   innerNodes.push(textSplitterNode);
-                               }
-                           }
-                       }
-                   }
-               }
+            connectedDocs.forEach(doc => {
+                if (typeof doc === 'string') {
+                    const docId = doc.replace(/{{|}}/g, '').split('.')[0];
+                    const docNode = nodes.find(node => node.data.id === docId);
+                    if (docNode) {
+                        innerNodes.push(docNode);
+                        if (typeof docNode.data.inputs.textSplitter === 'string') {
+                            const textSplitterId = docNode.data.inputs.textSplitter.replace(/{{|}}/g, '').split('.')[0];
+                            const textSplitterNode = nodes.find(node => node.data.id === textSplitterId);
+                            if (textSplitterNode) {
+                                innerNodes.push(textSplitterNode);
+                            }
+                        }
+                    }
+                }
+            });
 
-
+            if (innerNodes.length > 1) { // Check if innerNodes contains more than just the vsNode
                 upsertNodes.push({
                     vectorNode: vsNode,
                     nodes: innerNodes.reverse()
-                })
+                });
             }
         }
     }
-    return upsertNodes
+    return upsertNodes;
 }
+
 
 export const rearrangeToolsOrdering = (newValues, sourceNodeId) => {
     // RequestsGet and RequestsPost have to be in order before other tools
