@@ -425,28 +425,42 @@ export const getUpsertDetails = (nodes, edges) => {
             if (connectedDocs.length) {
                 const innerNodes = [vsNode]
 
-                if (vsNode.data.inputs.embeddings) {
-                    const embeddingsId = vsNode?.data?.inputs?.embeddings ? vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0] : 'defaultEmbeddingsId';
-                    innerNodes.push(nodes.find((node) => node.data.id === embeddingsId))
-                }
+               if (vsNode?.data?.inputs?.embeddings) {
+                   const embeddingsId = typeof vsNode.data.inputs.embeddings === 'string'
+                       ? vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0]
+                       : 'defaultEmbeddingsId';
+                   const embeddingsNode = nodes.find((node) => node.data.id === embeddingsId);
+                   if (embeddingsNode) {
+                       innerNodes.push(embeddingsNode);
+                   }
+               }
 
-                if (vsNode.data.inputs.recordManager) {
-                    const recordManagerId = vsNode.data.inputs.recordManager.replace(/{{|}}/g, '').split('.')[0]
-                    innerNodes.push(nodes.find((node) => node.data.id === recordManagerId))
-                }
+               if (vsNode?.data?.inputs?.recordManager && typeof vsNode.data.inputs.recordManager === 'string') {
+                   const recordManagerId = vsNode.data.inputs.recordManager.replace(/{{|}}/g, '').split('.')[0];
+                   const recordManagerNode = nodes.find((node) => node.data.id === recordManagerId);
+                   if (recordManagerNode) {
+                       innerNodes.push(recordManagerNode);
+                   }
+               }
 
-                for (const doc of connectedDocs) {
-                    const docId = doc.replace(/{{|}}/g, '').split('.')[0]
-                    const docNode = nodes.find((node) => node.data.id === docId)
-                    if (docNode) innerNodes.push(docNode)
+               for (const doc of connectedDocs) {
+                   if (typeof doc === 'string') {
+                       const docId = doc.replace(/{{|}}/g, '').split('.')[0];
+                       const docNode = nodes.find((node) => node.data.id === docId);
+                       if (docNode) {
+                           innerNodes.push(docNode);
+                           // Found Document Loader Node, proceed to find connected Text Splitter node
+                           if (docNode.data.inputs.textSplitter && typeof docNode.data.inputs.textSplitter === 'string') {
+                               const textSplitterId = docNode.data.inputs.textSplitter.replace(/{{|}}/g, '').split('.')[0];
+                               const textSplitterNode = nodes.find((node) => node.data.id === textSplitterId);
+                               if (textSplitterNode) {
+                                   innerNodes.push(textSplitterNode);
+                               }
+                           }
+                       }
+                   }
+               }
 
-                    // Found Document Loader Node, proceed to find connected Text Splitter node
-                    if (docNode && docNode.data.inputs.textSplitter) {
-                        const textSplitterId = docNode.data.inputs.textSplitter.replace(/{{|}}/g, '').split('.')[0]
-                        const textSplitterNode = nodes.find((node) => node.data.id === textSplitterId)
-                        if (textSplitterNode) innerNodes.push(textSplitterNode)
-                    }
-                }
 
                 upsertNodes.push({
                     vectorNode: vsNode,
