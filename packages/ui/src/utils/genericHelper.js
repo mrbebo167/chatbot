@@ -426,7 +426,7 @@ export const getUpsertDetails = (nodes, edges) => {
                 const innerNodes = [vsNode]
 
                 if (vsNode.data.inputs.embeddings) {
-                    const embeddingsId = vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0]
+                    const embeddingsId = vsNode?.data?.inputs?.embeddings ? vsNode.data.inputs.embeddings.replace(/{{|}}/g, '').split('.')[0] : 'defaultEmbeddingsId';
                     innerNodes.push(nodes.find((node) => node.data.id === embeddingsId))
                 }
 
